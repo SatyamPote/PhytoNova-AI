@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FcGoogle } from 'react-icons/fc';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginForm() {
+  const navigate = useNavigate();
   const { signIn, signInWithGoogle, error } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -16,7 +17,7 @@ export default function LoginForm() {
     const { error: err } = await signIn(email, password);
     setLoading(false);
     if (!err) {
-      window.location.href = '/';
+      navigate('/', { replace: true });
     }
   }
 

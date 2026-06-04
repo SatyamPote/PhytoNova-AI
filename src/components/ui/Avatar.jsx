@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 const sizeClasses = {
   xs: 'w-6 h-6 text-xs',
@@ -37,12 +37,16 @@ export default function Avatar({ name, src, size = 'md', className = '' }) {
   const initials = useMemo(() => getInitials(name), [name]);
   const bgClass = useMemo(() => hashColor(name || ''), [name]);
 
-  if (src) {
+  const [imgError, setImgError] = useState(false);
+
+  if (src && !imgError) {
     return (
       <img
         src={src}
         alt={name || 'Avatar'}
         className={`rounded-full object-cover ${sizeClass} ${className}`}
+        onError={() => setImgError(true)}
+        loading="lazy"
       />
     );
   }

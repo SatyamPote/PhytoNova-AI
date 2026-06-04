@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RegisterForm() {
+  const navigate = useNavigate();
   const { signUp, error } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -30,7 +32,7 @@ export default function RegisterForm() {
     if (err) {
       setLocalError(err.message);
     } else {
-      window.location.href = '/';
+      navigate('/', { replace: true });
     }
   }
 

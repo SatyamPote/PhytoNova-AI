@@ -27,6 +27,7 @@ export default function ProductCard({ product, onClick }) {
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
         <div className="absolute top-3 left-3">
           <Badge variant="primary">{product.category}</Badge>

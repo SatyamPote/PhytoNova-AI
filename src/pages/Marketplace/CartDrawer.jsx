@@ -371,6 +371,8 @@ export default function CartDrawer({ isOpen, onClose }) {
                       src={item.image}
                       alt={item.name}
                       className="w-16 h-16 rounded object-cover flex-shrink-0"
+                      loading="lazy"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-semibold text-text-primary line-clamp-1">{item.name}</h4>

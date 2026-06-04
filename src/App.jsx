@@ -14,12 +14,23 @@ function ScrollToTop() {
   return null;
 }
 
+/** Strip auth hash fragments from URL after OAuth redirect */
+function CleanUrlHash() {
+  useEffect(() => {
+    if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('error'))) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
           <CartProvider>
+            <CleanUrlHash />
             <ScrollToTop />
             <AppRoutes />
           </CartProvider>
