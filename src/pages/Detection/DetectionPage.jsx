@@ -8,6 +8,16 @@ import { useAuth } from '../../context/AuthContext';
 import { getTreatment } from '../../utils/treatments';
 import { saveDetection } from '../../utils/detectionsStore';
 
+/** Convert a File to a base64 data URL. */
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function DetectionPage() {
   const { user } = useAuth();
 
@@ -42,12 +52,16 @@ export default function DetectionPage() {
 
     setLoading(true);
     try {
+      // Read image as base64 for persistence
+      const imageDataUrl = await readFileAsDataURL(file);
+
       const analysis = await analyzeImage(file);
       setResult(analysis);
 
       const treatment = getTreatment(analysis.label);
       const { supabaseError } = await saveDetection(
         {
+          image_url: imageDataUrl,
           disease: analysis.label,
           confidence: analysis.confidence,
           treatment: treatment.title,

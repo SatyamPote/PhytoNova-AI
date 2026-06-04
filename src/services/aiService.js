@@ -1,4 +1,5 @@
 import { api } from './api';
+import { smartDemoAnalyse } from '../utils/smartDemoAnalysis';
 
 const HF_MODEL = import.meta.env.VITE_HF_MODEL || 'facebook/deit-base-distilled-patch16-224';
 const HF_TOKEN = import.meta.env.VITE_HF_API_TOKEN;
@@ -14,32 +15,17 @@ function toBase64(file) {
   });
 }
 
-/** Deterministic mock prediction for when the HF token is absent. */
-function mockPrediction() {
-  const mockResults = [
-    { label: 'Tomato___Early_blight', confidence: 0.87 },
-    { label: 'Tomato___Late_blight', confidence: 0.82 },
-    { label: 'Grape___Esca', confidence: 0.79 },
-    { label: 'Apple___Apple_scab', confidence: 0.91 },
-    { label: 'Potato___Early_blight', confidence: 0.85 },
-    { label: 'Cucumber___Downy_mildew', confidence: 0.88 },
-  ];
-  const pick = mockResults[Math.floor(Math.random() * mockResults.length)];
-  return { ...pick, source: 'mock' };
-}
-
 /**
- * Analyse a plant-image file using Hugging Face Inference API.
+ * Analyse a plant-image file.
+ * Tries Hugging Face Inference API when a token is present,
+ * otherwise falls back to client-side demo colour analysis.
  * @param {File} file
- * @returns {Promise<{ label: string, confidence: number }>}
+ * @returns {Promise<{ label: string, confidence: number, source: 'huggingface'|'demo' }>}
  */
 export async function analyzeImage(file) {
   if (!isValidToken) {
-    console.warn(
-      '[aiService] VITE_HF_API_TOKEN is not set or invalid. Using mock prediction.'
-    );
-    await new Promise((r) => setTimeout(r, 800));
-    return mockPrediction();
+    console.warn('[aiService] VITE_HF_API_TOKEN not set — using client-side demo analysis.');
+    return smartDemoAnalyse(file);
   }
 
   const base64 = await toBase64(file);
@@ -65,8 +51,7 @@ export async function analyzeImage(file) {
 
     return { label, confidence, source: 'huggingface' };
   } catch (err) {
-    // Return user-friendly error message for network failures
-    const message = err.response?.data?.error || err.message || 'Network error. Please try again.';
-    throw new Error(message);
+    console.warn('[aiService] Hugging Face inference failed, using demo fallback:', err.message);
+    return smartDemoAnalyse(file);
   }
 }
