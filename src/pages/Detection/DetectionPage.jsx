@@ -1,0 +1,159 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import GlassCard from '../../components/ui/GlassCard';
+import UploadZone from './UploadZone';
+import ResultPanel from './ResultPanel';
+import HistoryPanel from './HistoryPanel';
+import { analyzeImage } from '../../services/aiService';
+import { supabase } from '../../services/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { getTreatment } from '../../utils/treatments';
+
+export default function DetectionPage() {
+  const { user } = useAuth();
+
+  const [preview, setPreview] = useState(null);
+  const previewRef = useRef(null);
+
+  useEffect(() => {
+    if (previewRef.current) {
+      URL.revokeObjectURL(previewRef.current);
+    }
+    previewRef.current = preview;
+  }, [preview]);
+
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    };
+  }, []);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleUpload = useCallback(async (file) => {
+    setError(null);
+    setResult(null);
+
+    // Show preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setPreview(objectUrl);
+
+    setLoading(true);
+    try {
+      const analysis = await analyzeImage(file);
+      setResult(analysis);
+
+      // Persist to Supabase if user is authenticated
+      if (user && supabase) {
+        const treatment = getTreatment(analysis.label);
+        await supabase.from('detections').insert({
+          user_id: user.id,
+          image_url: '',
+          disease: analysis.label,
+          confidence: analysis.confidence,
+          treatment: treatment.title,
+        });
+
+        // Tell HistoryPanel to refresh
+        window.dispatchEvent(new CustomEvent('phytanova:history:refresh'));
+      }
+    } catch (err) {
+      setError(err.message || 'Analysis failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Page header */}
+      <div className="max-w-5xl mx-auto px-4 pt-10 pb-6">
+        <motion.h1
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-4xl font-bold text-text-primary"
+        >
+          Disease{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+            Detection
+          </span>
+        </motion.h1>
+        <p className="text-text-secondary mt-2">
+          Upload a photo of a plant leaf to identify diseases and get AI-powered
+          treatment recommendations.
+        </p>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 pb-16 grid gap-6 lg:grid-cols-2">
+        {/* Left column — upload + result */}
+        <div className="space-y-6">
+          {/* Upload zone */}
+          <GlassCard>
+            <div className="p-5">
+              <h2 className="text-text-primary font-semibold mb-4">
+                Upload Plant Image
+              </h2>
+              <UploadZone onUpload={handleUpload} />
+            </div>
+          </GlassCard>
+
+          {/* Loading spinner */}
+          <AnimatePresence>
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex flex-col items-center gap-4 py-10"
+              >
+                <div className="relative w-16 h-16">
+                  <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                  <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                </div>
+                <p className="text-text-secondary text-sm">
+                  Analysing image with AI…
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Error message */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="GlassCard p-4 border-red-500/30 bg-red-500/10"
+              >
+                <p className="text-red-300 text-sm">{error}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Result panel */}
+          <AnimatePresence>
+            {result && !loading && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ResultPanel result={result} preview={preview} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Right column — history */}
+        <div>
+          <HistoryPanel />
+        </div>
+      </div>
+    </div>
+  );
+}

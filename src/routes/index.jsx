@@ -1,0 +1,44 @@
+import { lazy, Suspense } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Layout from '../components/layout/Layout';
+import ProtectedRoute from '../components/layout/ProtectedRoute';
+
+const HomePage = lazy(() => import('../pages/Home/HomePage'));
+const AuthPage = lazy(() => import('../pages/Auth/AuthPage'));
+const ProfilePage = lazy(() => import('../pages/Profile/ProfilePage'));
+const DetectionPage = lazy(() => import('../pages/Detection/DetectionPage'));
+const DashboardPage = lazy(() => import('../pages/Dashboard/DashboardPage'));
+const MarketplacePage = lazy(() => import('../pages/Marketplace/MarketplacePage'));
+const CommunityPage = lazy(() => import('../pages/Community/CommunityPage'));
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="detect" element={<DetectionPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="marketplace" element={<MarketplacePage />} />
+          <Route path="community" element={<CommunityPage />} />
+          <Route path="profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
+          <Route path="auth" element={<AuthPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  );
+}
+
+export default AppRoutes;
