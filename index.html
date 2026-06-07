@@ -2890,6 +2890,22 @@
     /* =========================================
    USERS DATABASE (localStorage simulation)
    ========================================= */
+  /* =========================================
+   RESPONSIVE (mobile/tablet)
+   ========================================= */
+  @media (max-width: 640px) {
+    .products-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+    .cart-panel { width: 100vw !important; }
+    .modal { width: 95vw !important; padding: 28px !important; }
+    .chatbot-window { width: 100vw !important; height: 100vh !important; right: 0 !important; bottom: 0 !important; border-radius: 0 !important; }
+    .hero { flex-direction: column !important; padding: 100px 20px 40px !important; }
+    .section { padding: 60px 20px !important; }
+    .features-grid, .testimonials, .steps { grid-template-columns: 1fr !important; }
+    .topbar { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+    .marketplace-header { flex-direction: column !important; align-items: stretch !important; }
+    .dashboard-row { grid-template-columns: 1fr !important; }
+    .category-section { display: none; }
+  }
   </style>
 </head>
 
@@ -3629,6 +3645,26 @@
         </div>
 
         <div class="products-grid" id="productsGrid"></div>
+        <div class="category-section" id="cat-seeds">
+          <h3 class="cat-heading" style="font-size:20px;font-weight:700;margin:24px 0 12px;color:var(--green-neon);">🌱 Seeds</h3>
+          <div class="products-grid" id="productsGrid-seeds"></div>
+        </div>
+        <div class="category-section" id="cat-fertilizer">
+          <h3 class="cat-heading" style="font-size:20px;font-weight:700;margin:24px 0 12px;color:var(--green-neon);">🧪 Fertilizers</h3>
+          <div class="products-grid" id="productsGrid-fertilizer"></div>
+        </div>
+        <div class="category-section" id="cat-pesticide">
+          <h3 class="cat-heading" style="font-size:20px;font-weight:700;margin:24px 0 12px;color:var(--green-neon);">🛡️ Pesticides</h3>
+          <div class="products-grid" id="productsGrid-pesticide"></div>
+        </div>
+        <div class="category-section" id="cat-tools">
+          <h3 class="cat-heading" style="font-size:20px;font-weight:700;margin:24px 0 12px;color:var(--green-neon);">🔧 Tools</h3>
+          <div class="products-grid" id="productsGrid-tools"></div>
+        </div>
+        <div class="category-section" id="cat-organic">
+          <h3 class="cat-heading" style="font-size:20px;font-weight:700;margin:24px 0 12px;color:var(--green-neon);">🌿 Organic</h3>
+          <div class="products-grid" id="productsGrid-organic"></div>
+        </div>
       </div>
 
       <!-- ===== COMMUNITY PANEL ===== -->
@@ -5275,13 +5311,17 @@
     }
 
     // ==================== MARKETPLACE ====================
-    function renderProducts(filter = 'all', search = '') {
-      const grid = document.getElementById('productsGrid');
+    function renderProducts(filter = 'all', search = '', targetId = 'productsGrid') {
+      const grid = document.getElementById(targetId);
       let filtered = products.filter(p =>
         (filter === 'all' || p.category === filter) &&
         (search === '' || p.name.toLowerCase().includes(search.toLowerCase()) || p.desc.toLowerCase().includes(search.toLowerCase()))
       );
 
+      if (!filtered.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:rgba(255,255,255,0.3);padding:24px;">No products found.</div>';
+        return;
+      }
       grid.innerHTML = filtered.map(p => `
     <div class="product-card">
       <div class="product-image" style="background:linear-gradient(135deg,rgba(${getCatColor(p.category)},0.15),rgba(${getCatColor(p.category)},0.05));">
@@ -5298,6 +5338,18 @@
       </div>
     </div>
   `).join('');
+    }
+
+    function renderAllCategories() {
+      const cats = [
+        { key: 'seeds', label: 'Seeds' },
+        { key: 'fertilizer', label: 'Fertilizers' },
+        { key: 'pesticide', label: 'Pesticides' },
+        { key: 'tools', label: 'Tools' },
+        { key: 'organic', label: 'Organic' },
+      ];
+      cats.forEach(c => renderProducts(c.key, '', 'productsGrid-' + c.key));
+      renderProducts('all', '', 'productsGrid');
     }
 
     function getCatColor(cat) {
@@ -5397,7 +5449,16 @@
     function filterCategory(cat, el) {
       document.querySelectorAll('.category-chips .chip').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
-      renderProducts(cat);
+      document.querySelectorAll('.category-section').forEach(s => s.style.display = 'none');
+      const mainGrid = document.getElementById('productsGrid');
+      if (cat === 'all') {
+        mainGrid.style.display = '';
+        document.querySelectorAll('.category-section').forEach(s => s.style.display = '');
+      } else {
+        mainGrid.style.display = 'none';
+        const target = document.getElementById('cat-' + cat);
+        if (target) target.style.display = '';
+      }
     }
 
     function filterProducts(val) {
@@ -5903,7 +5964,7 @@
       // restore profile fields (name, email, bio)
       try { loadProfileFields(); } catch (e) { console.warn('loadProfileFields failed', e); }
       setupAuthEnterKey();
-      renderProducts();
+      renderAllCategories();
       renderFeaturedCarousel();
       renderNotifications();
       startLiveNotifications();

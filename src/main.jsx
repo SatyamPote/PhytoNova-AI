@@ -302,6 +302,184 @@ window.handleLogout = (function () {
 })();
 
 // ---------------------------------------------------------------------------
+// Checkout Integration — Order Saving + Email
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Helper: calculateCartTotal
+// ---------------------------------------------------------------------------
+const calculateCartTotal = () => window.cartItems?.reduce((sum, i) => sum + i.price * i.qty, 0) || 0;
+
+// ---------------------------------------------------------------------------
+// Helper: sendOrderEmail
+// ---------------------------------------------------------------------------
+const sendOrderEmail = async ({ to, cartItems, total, orderId, customerName, address }) => {
+  const apiKey = import.meta.env.VITE_RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[PhytoNova] VITE_RESEND_API_KEY not set — skipping order email.');
+    return;
+  }
+
+  const htmlBody = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#0a2018;color:#1a1a1a;">
+      <div style="background:#0a2018;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
+        <h1 style="color:#22c55e;margin:0;font-size:28px;">🌿 PhytoNova Order Confirmed</h1>
+        <p style="color:#86efac;margin:8px 0 0;font-size:14px;">Thank you for your order, ${customerName || 'farmer'}!</p>
+      </div>
+      <div style="padding:32px;background:#fff;">
+        <p style="font-size:16px;margin:0 0 8px;"><strong>Order ID:</strong> <span style="color:#22c55e;font-weight:700;">${orderId}</span></p>
+        <p style="font-size:14px;color:#555;margin:0 0 24px;">Placed just now</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:0 0 24px;" />
+        <h2 style="font-size:16px;margin:0 0 16px;color:#333;">Items Ordered</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="background:#f5f5f5;">
+              <th style="padding:10px 8px;text-align:left;color:#555;">Product</th>
+              <th style="padding:10px 8px;text-align:center;color:#555;">Qty</th>
+              <th style="padding:10px 8px;text-align:right;color:#555;">Price</th>
+              <th style="padding:10px 8px;text-align:right;color:#555;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(cartItems || []).map(item => `
+              <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:10px 8px;color:#333;">${item.name || item.product_name || 'Product'}</td>
+                <td style="padding:10px 8px;text-align:center;color:#333;">× ${item.qty || 1}</td>
+                <td style="padding:10px 8px;text-align:right;color:#333;">₹${(item.price || 0).toLocaleString('en-IN')}</td>
+                <td style="padding:10px 8px;text-align:right;color:#333;font-weight:700;">₹${((item.price || 0) * (item.qty || 1)).toLocaleString('en-IN')}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top:20px;padding:16px;background:#f0fdf4;border-radius:8px;text-align:right;">
+          <span style="font-size:14px;color:#555;">Total Paid: </span>
+          <span style="font-size:22px;font-weight:700;color:#16a34a;">₹${(total || 0).toLocaleString('en-IN')}</span>
+        </div>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+        <h2 style="font-size:16px;margin:0 0 12px;color:#333;">Delivery Address</h2>
+        <p style="font-size:14px;color:#555;margin:0;line-height:1.6;">${address || 'Not provided'}</p>
+      </div>
+      <div style="background:#f5f5f5;padding:16px 32px;border-radius:0 0 12px 12px;text-align:center;">
+        <p style="margin:0;font-size:12px;color:#999;">© PhytoNova AI — Your smart farming companion</p>
+      </div>
+    </div>`;
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'PhytoNova <orders@phytonova.ai>',
+        to,
+        subject: `Your PhytoNova Order Confirmation — ${orderId}`,
+        html: htmlBody,
+      }),
+    });
+  } catch (err) {
+    console.error('[PhytoNova] Failed to send order email:', err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Override window.goPayStep
+// ---------------------------------------------------------------------------
+window.goPayStep = (function () {
+  const originalGoPayStep = window.goPayStep;
+  return async function (step) {
+    if (step === 2) {
+      const name = document.getElementById('addr-name')?.value.trim();
+      const phone = document.getElementById('addr-phone')?.value.trim();
+      const address = document.getElementById('addr-address')?.value.trim();
+
+      if (!name || !phone || !address) {
+        window.showToast('⚠️ Please complete delivery name, phone and address.');
+        return;
+      }
+      if (typeof window.validatePhone === 'function' && !window.validatePhone(phone)) {
+        window.showToast('⚠️ Please enter a valid phone number.');
+        return;
+      }
+    }
+
+    if (step === 3) {
+      const paymentMethod = document.querySelector('input[name="payment"]:checked');
+      const selected = paymentMethod ? paymentMethod.value : 'upi';
+      if (selected === 'upi') {
+        const upi = document.getElementById('upiId')?.value.trim();
+        if (typeof window.validateUPI === 'function' && !window.validateUPI(upi)) {
+          window.showToast('⚠️ Please enter a valid UPI ID.');
+          return;
+        }
+      }
+
+      const name = document.getElementById('addr-name')?.value.trim();
+      const phone = document.getElementById('addr-phone')?.value.trim();
+      const address = document.getElementById('addr-address')?.value.trim();
+      const total = calculateCartTotal();
+      const orderId = 'PNI-' + Math.floor(Math.random() * 900000 + 100000);
+
+      const orderIdEl = document.getElementById('orderId');
+      if (orderIdEl) orderIdEl.textContent = orderId;
+
+      if (window.supabase && window.currentUser?.id) {
+        try {
+          await window.supabase.from('orders').insert({
+            user_id: window.currentUser.id,
+            customer_name: name,
+            customer_email: window.currentUser.email,
+            customer_phone: phone,
+            customer_address: address,
+            cart_items: window.cartItems,
+            total_price: total,
+            status: 'confirmed',
+          });
+        } catch (err) {
+          console.error('[PhytoNova] Failed to save order to Supabase:', err);
+        }
+      }
+
+      if (window.currentUser?.email) {
+        await sendOrderEmail({
+          to: window.currentUser.email,
+          cartItems: window.cartItems,
+          total,
+          orderId,
+          customerName: name,
+          address,
+        });
+      }
+
+      if (typeof window.addNotification === 'function') {
+        window.addNotification('Order Confirmed', 'Your order has been placed successfully and is being processed.', 'Just now');
+      }
+      window.showToast('🎉 Order placed successfully!');
+      trackEvent('purchase', { value: total, currency: 'INR', items: window.cartItems?.length || 0 });
+
+      return originalGoPayStep(step);
+    }
+
+    return originalGoPayStep(step);
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// Override window.renderCart — ensure #cartTotal is always accurate
+// ---------------------------------------------------------------------------
+window.renderCart = (function () {
+  const originalRenderCart = window.renderCart;
+  return function (...args) {
+    if (typeof originalRenderCart === 'function') {
+      originalRenderCart.apply(this, args);
+    }
+    const total = calculateCartTotal();
+    const totalEl = document.getElementById('cartTotal');
+    if (totalEl) totalEl.textContent = '₹' + total.toLocaleString('en-IN');
+  };
+})();
+
+// ---------------------------------------------------------------------------
 // Attach everything after DOM is ready
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
