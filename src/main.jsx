@@ -441,7 +441,7 @@ const sendOrderEmail = async ({ to, cartItems, total, orderId, customerName, add
           <p style="margin-top: 20px;">Thank you for choosing PhytoNova! 🌿</p>
         </div>
       `;
-      const resp = await fetch('/api/email', {
+      const primaryResp = await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -451,13 +451,39 @@ const sendOrderEmail = async ({ to, cartItems, total, orderId, customerName, add
           html: htmlBody,
         }),
       });
-      if (resp.ok) {
+      if (primaryResp.ok) {
         console.log('[PhytoNova] Email sent via Resend proxy');
-        showToast('📧 Order confirmation email sent!');
+        showToast('📧 Order confirmation sent to your email!');
         return { success: true, via: 'resend', reason: 'Sent via Resend' };
       }
-      const errText = await resp.text();
-      console.warn('[PhytoNova] Resend proxy returned non-OK:', resp.status, errText);
+      const errText = await primaryResp.text();
+
+      // PATH 0 FALLBACK — Resend domain restriction (403)
+      if (primaryResp.status === 403) {
+        console.warn('[PhytoNova] Resend 403 (domain not verified). Retrying to developer inbox.');
+        showToast('⚠️ Resend restricted: sending to developer email instead. Verify domain at resend.com to email customers.');
+
+        const fallbackResp = await fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'PhytoNova <onboarding@resend.dev>',
+            to: 'shivanipote1118@gmail.com',
+            subject: '[PhytoNova DEV] Order for ' + customerName + ' — ' + orderId,
+            html: htmlBody,
+          }),
+        });
+        if (fallbackResp.ok) {
+          console.log('[PhytoNova] Email sent to developer inbox via Resend fallback');
+          showToast('📧 Order confirmation sent to developer inbox. Verify domain at resend.com to email customers directly.');
+          return { success: true, via: 'resend-fallback', reason: 'Domain not verified; sent to developer email' };
+        }
+        const fallbackErr = await fallbackResp.text();
+        console.warn('[PhytoNova] Resend fallback also failed:', fallbackResp.status, fallbackErr);
+        return { success: false, via: null, reason: 'Resend 403 (domain not verified) and fallback also failed: ' + fallbackErr };
+      }
+
+      console.warn('[PhytoNova] Resend proxy returned non-OK:', primaryResp.status, errText);
     }
   } catch (e) {
     console.warn('[PhytoNova] Resend proxy error:', e);
