@@ -737,13 +737,6 @@ window.placeOrder = async function () {
     window.updateOrderStatus = updateOrderStatus;
   }
 
-  // UI: reset status panel
-  if (window.updateOrderStatus) {
-    window.updateOrderStatus('order', true, 'Saving order...');
-    window.updateOrderStatus('email', false, 'Sending email...');
-    window.updateOrderStatus('sms', false, 'Sending SMS...');
-  }
-
   // Save to Supabase orders table
   let dbOk = false;
   try {
@@ -765,9 +758,7 @@ window.placeOrder = async function () {
   } catch (e) {
     console.warn('[PhytoNova] Order save exception:', e);
   }
-  if (window.updateOrderStatus) {
-    window.updateOrderStatus('order', dbOk, dbOk ? 'Order saved to database' : 'Order not saved (offline/cart demo)');
-  }
+  console.log('[PhytoNova] Order saved:', dbOk);
 
   // Send email
   const emailResult = await sendOrderEmail({
@@ -779,9 +770,7 @@ window.placeOrder = async function () {
     address: deliveryAddress,
     paymentMethod,
   });
-  if (window.updateOrderStatus) {
-    window.updateOrderStatus('email', emailResult.success, emailResult.success ? 'Email: sent via ' + (emailResult.via || 'Resend') : emailResult.reason);
-  }
+  console.log('[PhytoNova] Email result:', emailResult);
 
   // Send SMS
   const smsResult = await sendOrderSMS({
@@ -790,9 +779,7 @@ window.placeOrder = async function () {
     total,
     customerName,
   });
-  if (window.updateOrderStatus) {
-    window.updateOrderStatus('sms', smsResult.success, smsResult.success ? 'SMS: sent via ' + (smsResult.via || 'provider') : smsResult.reason);
-  }
+  console.log('[PhytoNova] SMS result:', smsResult);
 
   // Update UI
   document.getElementById('orderId').textContent = orderId;
