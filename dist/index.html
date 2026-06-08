@@ -5372,51 +5372,66 @@
         };
       }
 
-      // Calculate a deterministic hash from metrics so same image always gets same result
       const hash = Math.round((greenRatio * 1000 + yellowRatio * 2000 + brownRatio * 3000 + whiteRatio * 4000 + brightRatio * 500) % 100);
 
-      // 1. Clear healthy plant
-      if (greenRatio >= 0.45 && brightRatio >= 0.35 && brownRatio < 0.05 && yellowRatio < 0.05 && whiteRatio < 0.03) {
+      // A. Very clean healthy photo → always healthy
+      if (greenRatio >= 0.45 && brightRatio >= 0.30 && brownRatio < 0.04 && yellowRatio < 0.04 && whiteRatio < 0.03) {
         return diseaseDB.find(d => d.type === 'healthy');
       }
 
-      // 2. White coating → Powdery Mildew
+      // B. Normal green plant with some variation → mix of healthy and disease
+      if (greenRatio >= 0.30 && brownRatio < 0.08 && yellowRatio < 0.08 && whiteRatio < 0.04) {
+        const roll = hash % 100;
+        if (roll < 50) {
+          return diseaseDB.find(d => d.type === 'healthy');
+        }
+      }
+
+      // C. White coating → Powdery Mildew
       if (whiteRatio >= 0.08 && greenRatio >= 0.15) {
         return diseaseDB.find(d => d.name.includes('Powdery Mildew'));
       }
 
-      // 3. Strong yellowing → Nutrient Deficiency ( Nitrogen )
-      if (yellowRatio >= 0.10 && greenRatio >= 0.10) {
-        return diseaseDB.find(d => d.name.includes('Nitrogen')) || diseaseDB.find(d => d.name.includes('Nutrient'));
+      // D. Strong yellowing → Nutrient Deficiency
+      if (yellowRatio >= 0.12 && greenRatio >= 0.10) {
+        const nutrients = diseaseDB.filter(d => d.name.includes('Nutrient'));
+        if (nutrients.length) return nutrients[hash % nutrients.length];
       }
 
-      // 4. Brown spots → could be Early Blight, Late Blight, or Bacterial Spot
-      if (brownRatio >= 0.08 && yellowRatio >= 0.05) {
+      // E. Clear brown spots → Blight / Spot diseases
+      if (brownRatio >= 0.08 && (yellowRatio >= 0.05 || greenRatio >= 0.20)) {
         const browns = diseaseDB.filter(d => d.name.includes('Blight') || d.name.includes('Bacterial') || d.name.includes('Spot'));
         if (browns.length) return browns[hash % browns.length];
       }
 
-      // 5. Moderate yellowing → Mosaic Virus or Downy Mildew
-      if (yellowRatio >= 0.06 && greenRatio >= 0.20) {
-        const yellows = diseaseDB.filter(d => d.name.includes('Mosaic') || d.name.includes('Downy') || d.name.includes('Virus'));
-        if (yellows.length) return yellows[hash % yellows.length];
+      // F. Moderate yellowing → Virus / Mosaic
+      if (yellowRatio >= 0.08 && greenRatio >= 0.18) {
+        const viruses = diseaseDB.filter(d => d.name.includes('Mosaic') || d.name.includes('Virus'));
+        if (viruses.length) return viruses[hash % viruses.length];
       }
 
-      // 6. Mostly green with slight issues → Rust or Anthracnose
-      if (greenRatio >= 0.30 && (brownRatio >= 0.03 || yellowRatio >= 0.03)) {
-        const mixed = diseaseDB.filter(d => d.name.includes('Rust') || d.name.includes('Anthracnose') || d.name.includes('Wilt'));
-        if (mixed.length) return mixed[hash % mixed.length];
+      // G. Moderate brown → Wilt / Rot
+      if (brownRatio >= 0.06 && greenRatio >= 0.20) {
+        const wilts = diseaseDB.filter(d => d.name.includes('Wilt') || d.name.includes('Rot'));
+        if (wilts.length) return wilts[hash % wilts.length];
       }
 
-      // 7. Default: pick a disease based on hash so different images get different results
+      // H. Mostly green but some symptoms → Rust / Anthracnose
+      if (greenRatio >= 0.30 && (brownRatio >= 0.04 || yellowRatio >= 0.04)) {
+        const mild = diseaseDB.filter(d => d.name.includes('Rust') || d.name.includes('Anthracnose') || d.name.includes('Mildew'));
+        if (mild.length) return mild[hash % mild.length];
+      }
+
+      // I. Default: mix of disease and healthy based on hash
       const diseasesOnly = diseaseDB.filter(d => d.type !== 'healthy' && d.type !== 'notplant');
       if (diseasesOnly.length) {
+        if (hash < 40) {
+          return diseaseDB.find(d => d.type === 'healthy');
+        }
         const pick = diseasesOnly[hash % diseasesOnly.length];
-        // Adjust confidence based on hash so it looks realistic
         return { ...pick, confidence: 70 + (hash % 25) };
       }
 
-      // 8. Ultimate fallback → healthy
       return diseaseDB.find(d => d.type === 'healthy');
     }
 
