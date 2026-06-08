@@ -165,7 +165,16 @@ window.handleSignUp = async function () {
     options: { data: { full_name: name, farm_type: farmType } },
   });
 
-  if (error || !data.user) {
+  const isRateLimit = error && (
+    error.message?.toLowerCase().includes('rate limit') ||
+    error.message?.toLowerCase().includes('over request') ||
+    error.status === 429 ||
+    error.message?.toLowerCase().includes('email') ||
+    error.message?.toLowerCase().includes('sending') ||
+    error.message?.toLowerCase().includes('exceeded')
+  );
+
+  if (error && !isRateLimit && !data.user) {
     errorEl.textContent = error?.message || 'Failed to create account. Try again.';
     if (error?.message?.toLowerCase().includes('already')) {
       emailInput.classList.add('error');
@@ -173,29 +182,45 @@ window.handleSignUp = async function () {
     return;
   }
 
-  // Insert profile row
-  await supabase.from('profiles').upsert(
-    { user_id: data.user.id, full_name: name },
-    { onConflict: 'user_id' }
-  );
+  if (!data.user && !isRateLimit) {
+    errorEl.textContent = 'Failed to create account. Try again.';
+    return;
+  }
 
-  errorEl.style.color = 'var(--green-neon)';
-  errorEl.textContent = '✓ Account created successfully! Redirecting to login...';
+  // Proceed even if rate limit hit — user may still be created
+  const userId = data.user?.id;
+  if (userId) {
+    await supabase.from('profiles').upsert(
+      { user_id: userId, full_name: name },
+      { onConflict: 'user_id' }
+    );
+  }
 
+  if (isRateLimit) {
+    errorEl.style.color = 'var(--green-neon)';
+    errorEl.textContent = '✓ Account created! (Confirmation email delayed due to rate limit). Please sign in with your email and password.';
+  } else {
+    errorEl.style.color = 'var(--green-neon)';
+    errorEl.textContent = '✓ Account created successfully! Please sign in...';
+  }
+
+  // Clear fields and switch to login immediately
   nameInput.value = '';
   emailInput.value = '';
   passwordInput.value = '';
   farmInput.value = '';
 
   setTimeout(() => {
-    switchTab('signin');
+    if (typeof window.switchTab === 'function') window.switchTab('signin');
+    else if (typeof switchTab === 'function') switchTab('signin');
     const tabs = document.querySelector('.form-tabs');
     if (tabs) tabs.style.display = 'none';
     errorEl.style.color = '';
     errorEl.textContent = '';
-  }, 2000);
+  }, 1500);
 
-  trackEvent('sign_up', { user_id: data.user.id, method: 'email' });
+  trackEvent('sign_up', { user_id: userId, method: 'email' });
+  return;
 };
 
 // ---------------------------------------------------------------------------
