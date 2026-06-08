@@ -133,6 +133,11 @@ window.handleSignUp = async function () {
     nameInput.classList.add('error');
     return;
   }
+  if (!/^[A-Za-z\s]+$/.test(name)) {
+    errorEl.textContent = 'Name must contain only alphabets and spaces.';
+    nameInput.classList.add('error');
+    return;
+  }
   if (!email) {
     errorEl.textContent = 'Please enter your email address.';
     emailInput.classList.add('error');
@@ -148,8 +153,8 @@ window.handleSignUp = async function () {
     passwordInput.classList.add('error');
     return;
   }
-  if (password.length < 8) {
-    errorEl.textContent = 'Password must be at least 8 characters long.';
+  if (password.length < 10) {
+    errorEl.textContent = 'Password must be at least 10 characters long.';
     passwordInput.classList.add('error');
     return;
   }
