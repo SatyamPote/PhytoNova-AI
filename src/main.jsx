@@ -5,7 +5,18 @@ import { trackEvent } from './services/firebase.js';
 // ---------------------------------------------------------------------------
 // Helpers — these exist as globals in index.html's inline <script>
 // ---------------------------------------------------------------------------
-const validateEmail = (email) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+const validateEmail = (email) => {
+  const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!re.test(email)) return false;
+  const local = email.split('@')[0];
+  if (local.length < 3) return false;
+  return true;
+};
+const isBannedDomain = (email) => {
+  const domain = email.split('@')[1]?.toLowerCase();
+  const banned = ['example.com','test.com','demo.com','mail.com','tempmail.com','temp-mail.com','fake.com','localhost'];
+  return banned.includes(domain);
+};
 const showToast = (msg) => {
   const toast = document.getElementById('toast');
   document.getElementById('toastMsg').textContent = msg;
@@ -75,13 +86,18 @@ window.handleSignIn = async function () {
     emailInput.classList.add('error');
     return;
   }
+  if (isBannedDomain(email)) {
+    errorEl.textContent = 'Please use a real email address. Demo domains are not allowed.';
+    emailInput.classList.add('error');
+    return;
+  }
   if (!password) {
     errorEl.textContent = 'Please enter your password.';
     passwordInput.classList.add('error');
     return;
   }
-  if (password.length < 4) {
-    errorEl.textContent = 'Password must be at least 4 characters.';
+  if (password.length < 10) {
+    errorEl.textContent = 'Password must be at least 10 characters long.';
     passwordInput.classList.add('error');
     return;
   }
@@ -145,6 +161,11 @@ window.handleSignUp = async function () {
   }
   if (!validateEmail(email)) {
     errorEl.textContent = 'Enter a valid email like farmer@example.com.';
+    emailInput.classList.add('error');
+    return;
+  }
+  if (isBannedDomain(email)) {
+    errorEl.textContent = 'Please use a real email address. Demo domains are not allowed.';
     emailInput.classList.add('error');
     return;
   }

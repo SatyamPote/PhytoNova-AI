@@ -3202,7 +3202,7 @@
       <div id="signin-form">
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" class="form-input" id="signin-email" placeholder="farmer@example.com">
+          <input type="email" class="form-input" id="signin-email" placeholder="yourname@gmail.com">
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
@@ -3225,7 +3225,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" class="form-input" id="signup-email" placeholder="farmer@example.com">
+          <input type="email" class="form-input" id="signup-email" placeholder="yourname@gmail.com">
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
@@ -3777,7 +3777,7 @@
                 <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;">
                   <div>
                     <div class="topbar-title" id="profileName" style="font-size:22px;">User Name</div>
-                    <div style="color:rgba(255,255,255,0.45);margin-top:6px;" id="profileEmail">email@example.com</div>
+                    <div style="color:rgba(255,255,255,0.45);margin-top:6px;" id="profileEmail">Not signed in</div>
                   </div>
                   <div style="text-align:right;min-width:140px;">
                     <div style="font-size:13px;color:rgba(255,255,255,0.45);">Member since</div>
@@ -4066,7 +4066,14 @@
     let lastChatTopic = 'general';
 
     function validateEmail(email) {
-      return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+      const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!re.test(email)) return false;
+      return email.split('@')[0].length >= 3;
+    }
+    function isBannedDomain(email) {
+      const domain = email.split('@')[1]?.toLowerCase();
+      const banned = ['example.com','test.com','demo.com','mail.com','tempmail.com','temp-mail.com','fake.com','localhost'];
+      return banned.includes(domain);
     }
     function validatePhone(phone) {
       const digits = phone.trim().replace(/\D/g, '');
@@ -4653,13 +4660,18 @@
         emailInput.classList.add('error');
         return;
       }
+      if (isBannedDomain(email)) {
+        errorEl.textContent = 'Please use a real email address. Demo domains are not allowed.';
+        emailInput.classList.add('error');
+        return;
+      }
       if (!password) {
         errorEl.textContent = 'Please enter your password.';
         passwordInput.classList.add('error');
         return;
       }
-      if (password.length < 4) {
-        errorEl.textContent = 'Password must be at least 4 characters.';
+      if (password.length < 10) {
+        errorEl.textContent = 'Password must be at least 10 characters long.';
         passwordInput.classList.add('error');
         return;
       }
@@ -4713,12 +4725,17 @@
         emailInput.classList.add('error');
         return;
       }
+      if (isBannedDomain(email)) {
+        errorEl.textContent = 'Please use a real email address. Demo domains are not allowed.';
+        emailInput.classList.add('error');
+        return;
+      }
       if (!password) {
         errorEl.textContent = 'Please create a password.';
         passwordInput.classList.add('error');
         return;
       }
-      if (password.length < 8) {
+      if (password.length < 10) {
         errorEl.textContent = 'Password must be at least 8 characters long.';
         passwordInput.classList.add('error');
         return;
@@ -4907,7 +4924,7 @@
       });
       const sidebarName = document.getElementById('sidebarName'); if (sidebarName) sidebarName.textContent = 'User';
       const profileName = document.getElementById('profileName'); if (profileName) profileName.textContent = 'User';
-      const profileEmail = document.getElementById('profileEmail'); if (profileEmail) profileEmail.textContent = 'email@example.com';
+      const profileEmail = document.getElementById('profileEmail'); if (profileEmail) profileEmail.textContent = 'Not signed in';
     }
 
     // ==================== SIDEBAR ====================
@@ -5036,7 +5053,7 @@
 
     function loadProfileFields() {
       const name = localStorage.getItem('userName') || 'User';
-      const email = localStorage.getItem('userEmail') || 'email@example.com';
+      const email = localStorage.getItem('userEmail') || '';
       const bio = localStorage.getItem('userBio') || 'Experienced grower focused on regenerative practices. Loves drip irrigation and soil health monitoring.';
       document.getElementById('settingsName').value = name;
       const se = document.getElementById('settingsEmail'); if (se) se.value = email;
